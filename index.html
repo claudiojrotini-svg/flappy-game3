@@ -18,8 +18,7 @@
             display: block;
             width: 100%;
             height: 100%;
-            /* Garante que o canvas não distorça e preencha tudo */
-            object-fit: cover; 
+            touch-action: none;
         }
 
         #recursos {
@@ -49,22 +48,24 @@
         const PULO = -4.5;
         
         // Dificuldade
-        const VELOCIDADE_INICIAL = 3.5;
+        const VELOCIDADE_INICIAL = 3.0; // Um pouco mais lento para testar
         let velocidadeAtual = VELOCIDADE_INICIAL;
         
         // Cenário
-        const ABERTURA_CANO = 270; // Abertura ajustada para o boneco maior
-        const DISTANCIA_ENTRE_CANOS = 380; 
-        let bgX = 0; // Posição X do background para parallax
-        const BG_SPEED_RATIO = 0.3; // O fundo move a 30% da velocidade dos canos
+        const ABERTURA_CANO = 280;
+        const DISTANCIA_ENTRE_CANOS = 360; 
+        let bgX = 0; 
+        const BG_SPEED_RATIO = 0.3; 
 
-        // Visual do Personagem (HITBOX PRECISA)
-        // O tamanho visual e a hitbox agora são idênticos para precisão total.
-        const TAMANHO_VISUAL_BIRD = 90; // Bem grande e destacado
-        const TAMANHO_HITBOX = 90;      // Colisão exata
+        // --- CORREÇÃO DA COLISÃO ---
+        // O visual é 90, mas a área que bate é menor (70) para dar uma folga justa.
+        const TAMANHO_VISUAL_BIRD = 90;
+        const TAMANHO_HITBOX = 70; // Reduzido para evitar bater sem querer
+        // Calcula a diferença para centralizar a hitbox
+        const HITBOX_OFFSET = (TAMANHO_VISUAL_BIRD - TAMANHO_HITBOX) / 2;
 
-        // Visual dos Canos (Estilo Mario World)
-        const LARGURA_CANO = 75; // Um pouco mais largo para impor presença
+        // Visual dos Canos
+        const LARGURA_CANO = 75;
         const ALTURA_CABECA_CANO = 35;
         const BORDA_CANO = 4;
         const COR_CANO_LIGHT = '#85e587';
@@ -87,11 +88,11 @@
         let largura, altura;
         let frames = 0;
         let pontuacao = 0;
-        let estado = 'INICIO'; // INICIO, JOGANDO, GAMEOVER, VITORIA
+        let estado = 'INICIO';
 
         const amigo = {
             x: 50,
-            y: 150,
+            y: 150, // Essa é a posição do canto superior esquerdo da IMAGEM VISUAL
             velocidade: 0,
             rotation: 0,
             
@@ -100,9 +101,9 @@
                 this.y += this.velocidade;
 
                 // Rotação visual
-                if (this.velocidade < 0) this.rotation = -25 * Math.PI / 180;
+                if (this.velocidade < 0) this.rotation = -20 * Math.PI / 180;
                 else if (this.velocidade > 0) {
-                    this.rotation += 2 * Math.PI / 180;
+                    this.rotation += 1.5 * Math.PI / 180;
                     if(this.rotation > 90 * Math.PI / 180) this.rotation = 90 * Math.PI / 180;
                 }
 
@@ -112,28 +113,28 @@
                     this.velocidade = 0;
                 }
 
-                // Chão (Game Over instantâneo)
-                if(this.y + TAMANHO_HITBOX >= altura) {
-                    this.y = altura - TAMANHO_HITBOX;
+                // Chão (Usando a parte de baixo da hitbox para ser preciso)
+                if(this.y + HITBOX_OFFSET + TAMANHO_HITBOX >= altura) {
+                    this.y = altura - (HITBOX_OFFSET + TAMANHO_HITBOX);
                     mudarEstado('GAMEOVER');
                 }
             },
 
             pula: function() {
                 this.velocidade = PULO;
-                this.rotation = -25 * Math.PI / 180;
+                this.rotation = -20 * Math.PI / 180;
             },
 
             desenha: function() {
                 ctx.save();
-                // Centraliza o ponto de rotação no meio do sprite
+                // Rotaciona pelo centro da imagem visual
                 ctx.translate(this.x + TAMANHO_VISUAL_BIRD/2, this.y + TAMANHO_VISUAL_BIRD/2);
                 ctx.rotate(this.rotation);
                 ctx.drawImage(imgAmigo1, -TAMANHO_VISUAL_BIRD/2, -TAMANHO_VISUAL_BIRD/2, TAMANHO_VISUAL_BIRD, TAMANHO_VISUAL_BIRD);
                 ctx.restore();
                 
-                // DEBUG HITBOX (Descomente para ver a caixa de colisão vermelha)
-                // ctx.strokeStyle = "red"; ctx.lineWidth = 2; ctx.strokeRect(this.x, this.y, TAMANHO_HITBOX, TAMANHO_HITBOX);
+                // DEBUG: Descomente a linha abaixo para ver o quadrado vermelho da colisão real
+                // ctx.strokeStyle = "red"; ctx.lineWidth = 2; ctx.strokeRect(this.x + HITBOX_OFFSET, this.y + HITBOX_OFFSET, TAMANHO_HITBOX, TAMANHO_HITBOX);
             },
 
             reseta: function() {
@@ -153,15 +154,14 @@
 
                 this.lista.push({
                     x: largura,
-                    y: yRandom, // Y é a base do cano superior
+                    y: yRandom,
                     largura: LARGURA_CANO,
                     marcouPonto: false
                 });
             },
 
             atualiza: function() {
-                // Aumento gradual de dificuldade
-                const boostDificuldade = Math.min(3.5, Math.floor(pontuacao / 5) * 0.6);
+                const boostDificuldade = Math.min(3.0, Math.floor(pontuacao / 5) * 0.4);
                 velocidadeAtual = VELOCIDADE_INICIAL + boostDificuldade;
 
                 const frequencia = Math.floor(DISTANCIA_ENTRE_CANOS / velocidadeAtual);
@@ -173,17 +173,13 @@
                     const cano = this.lista[i];
                     cano.x -= velocidadeAtual;
 
-                    // =================================================
-                    // SISTEMA DE COLISÃO PRECISA (Hitbox exata)
-                    // =================================================
-                    // Como TAMANHO_VISUAL_BIRD == TAMANHO_HITBOX, não há offset.
-                    const birdLeft = amigo.x;
-                    const birdRight = amigo.x + TAMANHO_HITBOX;
-                    const birdTop = amigo.y;
-                    const birdBottom = amigo.y + TAMANHO_HITBOX;
+                    // --- COLISÃO CORRIGIDA (Usando a Hitbox menor e o Offset) ---
+                    const birdLeft = amigo.x + HITBOX_OFFSET;
+                    const birdRight = amigo.x + HITBOX_OFFSET + TAMANHO_HITBOX;
+                    const birdTop = amigo.y + HITBOX_OFFSET;
+                    const birdBottom = amigo.y + HITBOX_OFFSET + TAMANHO_HITBOX;
 
-                    // A "cabeça" do cano é mais larga, precisamos considerar isso na colisão X
-                    const cabecaExtra = 4; // Quanto a cabeça sai para fora do corpo
+                    const cabecaExtra = 4; 
                     const canoBodyLeft = cano.x + cabecaExtra;
                     const canoBodyRight = cano.x + cano.largura - cabecaExtra;
                     const canoHeadLeft = cano.x;
@@ -194,43 +190,39 @@
 
                     let colidiu = false;
 
-                    // Verifica colisão com Cano Superior
+                    // Cano de Cima
                     if (birdTop < canoCimaBottom) {
-                        // Bateu na cabeça (parte mais larga)?
                         if (birdBottom > canoCimaBottom - ALTURA_CABECA_CANO) {
+                             // Bateu na cabeça
                              if (birdRight > canoHeadLeft && birdLeft < canoHeadRight) colidiu = true;
-                        } 
-                        // Bateu no corpo (parte mais fina)?
-                        else {
+                        } else {
+                             // Bateu no corpo
                              if (birdRight > canoBodyLeft && birdLeft < canoBodyRight) colidiu = true;
                         }
                     }
                     
-                    // Verifica colisão com Cano Inferior
+                    // Cano de Baixo
                     if (!colidiu && birdBottom > canoBaixoTop) {
-                        // Bateu na cabeça (parte mais larga)?
                         if (birdTop < canoBaixoTop + ALTURA_CABECA_CANO) {
+                            // Bateu na cabeça
                             if (birdRight > canoHeadLeft && birdLeft < canoHeadRight) colidiu = true;
-                        }
-                        // Bateu no corpo (parte mais fina)?
-                        else {
+                        } else {
+                             // Bateu no corpo
                              if (birdRight > canoBodyLeft && birdLeft < canoBodyRight) colidiu = true;
                         }
                     }
 
                     if (colidiu) {
                         mudarEstado('GAMEOVER');
-                        return; // Encerra o loop de canos imediatamente para evitar múltiplos triggers
+                        return;
                     }
 
-                    // Pontuação
-                    // O ponto é marcado quando o centro do pássaro passa o centro do cano
-                    if (cano.x + cano.largura/2 < amigo.x + TAMANHO_HITBOX/2 && !cano.marcouPonto) {
+                    // Pontuação (baseada no centro da hitbox)
+                    if (cano.x + cano.largura/2 < birdLeft + TAMANHO_HITBOX/2 && !cano.marcouPonto) {
                         pontuacao++;
                         cano.marcouPonto = true;
                     }
 
-                    // Remove canos fora da tela
                     if (cano.x + cano.largura <= -100) {
                         this.lista.shift();
                         i--;
@@ -241,23 +233,18 @@
             desenha: function() {
                 for (let i = 0; i < this.lista.length; i++) {
                     const cano = this.lista[i];
-                    // Cano Superior
                     this.desenhaUmCanoMario(cano.x, cano.y, cano.largura, true);
-                    // Cano Inferior
                     this.desenhaUmCanoMario(cano.x, cano.y + ABERTURA_CANO, cano.largura, false);
                 }
             },
 
-            // Função de desenho procedural estilo Mario World
             desenhaUmCanoMario: function(x, yRef, w, isTop) {
                 const hHead = ALTURA_CABECA_CANO;
                 const border = BORDA_CANO;
-                // A cabeça é ligeiramente mais larga que o corpo definido por 'w'
                 const wHead = w;
                 const wBody = w - 8; 
                 const xBody = x + 4;
 
-                // Gradiente 3D
                 let grad = ctx.createLinearGradient(x, 0, x + w, 0);
                 grad.addColorStop(0, COR_CANO_DARK);
                 grad.addColorStop(0.3, COR_CANO_MAIN);
@@ -270,32 +257,24 @@
                 ctx.lineWidth = border;
 
                 if (isTop) {
-                    // Corpo (vai do topo da tela até a cabeça)
                     const bodyHeight = yRef - hHead;
                     if(bodyHeight > 0) {
                         ctx.fillRect(xBody, 0, wBody, bodyHeight);
-                        // Desenha bordas laterais do corpo
                         ctx.beginPath(); ctx.moveTo(xBody,0); ctx.lineTo(xBody, bodyHeight); ctx.stroke();
                         ctx.beginPath(); ctx.moveTo(xBody+wBody,0); ctx.lineTo(xBody+wBody, bodyHeight); ctx.stroke();
                     }
-                    // Cabeça
                     ctx.fillRect(x, yRef - hHead, wHead, hHead);
                     ctx.strokeRect(x, yRef - hHead, wHead, hHead);
                 } else {
-                    // Cabeça
                     ctx.fillRect(x, yRef, wHead, hHead);
                     ctx.strokeRect(x, yRef, wHead, hHead);
-                    // Corpo (vai da cabeça até o chão)
                     const bodyHeight = altura - (yRef + hHead);
                     if(bodyHeight > 0) {
                         ctx.fillRect(xBody, yRef + hHead, wBody, bodyHeight);
-                        // Bordas laterais
                          ctx.beginPath(); ctx.moveTo(xBody,yRef+hHead); ctx.lineTo(xBody, altura); ctx.stroke();
                          ctx.beginPath(); ctx.moveTo(xBody+wBody,yRef+hHead); ctx.lineTo(xBody+wBody, altura); ctx.stroke();
                     }
                 }
-
-                // Highlight extra para ficar mais "cartoon"
                 ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
                 ctx.fillRect(x + w*0.15, (isTop ? yRef-hHead : yRef), w*0.1, hHead);
             },
@@ -338,57 +317,42 @@
         }
 
         function desenha() {
-            // 1. Camada de Fundo (Céu com Parallax)
-            // Se o jogo estiver rodando, move o fundo. Se não, fica estático.
+            // --- CORREÇÃO DO FUNDO INFINITO ---
+            // Calcula a proporção da imagem para preencher a altura da tela
+            const bgRatio = imgCeu.width / imgCeu.height;
+            const bgHeight = altura;
+            const bgWidth = altura * bgRatio;
+
             if (estado === 'JOGANDO') {
                  bgX -= velocidadeAtual * BG_SPEED_RATIO;
-                 if (bgX <= -largura) bgX = 0;
+                 // Quando uma imagem inteira sai da tela, reseta a posição
+                 if (bgX <= -bgWidth) {
+                     bgX += bgWidth;
+                 }
             }
             
-            // Desenha duas vezes para criar o loop infinito
-            // Usa o aspecto da imagem para preencher a tela sem distorcer (cover)
-            const imgRatio = imgCeu.width / imgCeu.height;
-            const canvasRatio = largura / altura;
-            let sWidth, sHeight, sx, sy;
-
-            if (canvasRatio > imgRatio) {
-                sWidth = imgCeu.width;
-                sHeight = imgCeu.width / canvasRatio;
-                sx = 0;
-                sy = (imgCeu.height - sHeight) / 2;
-            } else {
-                sWidth = imgCeu.height * canvasRatio;
-                sHeight = imgCeu.height;
-                sx = (imgCeu.width - sWidth) / 2;
-                sy = 0;
+            // Desenha quantas cópias forem necessárias para preencher a largura
+            let currentBgX = bgX;
+            while (currentBgX < largura) {
+                ctx.drawImage(imgCeu, 0, 0, imgCeu.width, imgCeu.height, currentBgX, 0, bgWidth, bgHeight);
+                currentBgX += bgWidth;
             }
-
-            ctx.drawImage(imgCeu, sx, sy, sWidth, sHeight, bgX, 0, largura, altura);
-            ctx.drawImage(imgCeu, sx, sy, sWidth, sHeight, bgX + largura, 0, largura, altura);
             
-            // 2. Camada de Obstáculos
             canos.desenha();
-
-            // 3. Camada do Personagem
             amigo.desenha();
 
-            // === INTERFACE (UI) ===
-            
-            // PLACAR
             if (estado === 'JOGANDO') {
                 ctx.fillStyle = "#FFF";
                 ctx.strokeStyle = "#000";
                 ctx.lineWidth = 5;
                 ctx.font = "900 70px 'Arial Black', Arial, sans-serif";
                 ctx.textAlign = "center";
-                // Sombra dura para destacar
                 ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3;
                 ctx.strokeText(pontuacao, largura / 2, 110);
                 ctx.fillText(pontuacao, largura / 2, 110);
-                ctx.shadowColor = "transparent"; // Reseta sombra
+                ctx.shadowColor = "transparent"; 
             }
 
-            // TELA INICIAL
             if (estado === 'INICIO') {
                 ctx.fillStyle = "rgba(0,0,0,0.7)";
                 ctx.fillRect(0, 0, largura, altura);
@@ -396,45 +360,38 @@
                 ctx.textAlign = "center";
                 ctx.fillStyle = "#FFF";
                 
-                // Título Principal
                 ctx.font = "bold 32px Arial";
                 ctx.fillText("Toque para começar", largura / 2, altura / 2 + 100);
 
-                // MENSAGEM DO PRÊMIO (Formatada exatamente como solicitado)
                 ctx.font = "bold 26px Arial";
                 ctx.fillText("“Ao chegar em " + PONTUACAO_PARA_VITORIA + " pontos,", largura / 2, altura / 2 - 30);
                 
-                // Destaque na segunda linha
                 ctx.save();
                 ctx.font = "900 30px Arial Black, Arial";
-                ctx.fillStyle = "#FFD700"; // Dourado
-                ctx.strokeStyle = "#C0392B"; // Borda vermelha
+                ctx.fillStyle = "#FFD700"; 
+                ctx.strokeStyle = "#C0392B"; 
                 ctx.lineWidth = 1.5;
                 ctx.fillText("você receberá um prêmio!”", largura / 2, altura / 2 + 10);
                 ctx.strokeText("você receberá um prêmio!”", largura / 2, altura / 2 + 10);
                 ctx.restore();
             }
 
-            // GAME OVER
             if (estado === 'GAMEOVER') {
                 ctx.fillStyle = "rgba(0,0,0,0.85)"; 
                 ctx.fillRect(0, 0, largura, altura);
                 desenhaImagemCentralizada(imgAmigo2);
             }
 
-            // VITÓRIA
             if (estado === 'VITORIA') {
                 ctx.fillStyle = "#f1c40f"; 
                 ctx.fillRect(0, 0, largura, altura);
                 
-                // Efeito de raios de sol girando
                 ctx.save();
                 ctx.translate(largura/2, altura/2);
                 ctx.rotate(frames * 0.015);
                 ctx.fillStyle = "rgba(255,255,255,0.25)";
                 for(let i=0; i<12; i++) {
                     ctx.rotate(Math.PI/6);
-                    // Desenha triângulos alongados a partir do centro
                     ctx.beginPath();
                     ctx.moveTo(0,0);
                     ctx.lineTo(largura, -50);
@@ -445,7 +402,6 @@
 
                 desenhaImagemCentralizada(imgVitoria);
 
-                // Texto de Parabéns
                 ctx.fillStyle = "#FFF";
                 ctx.strokeStyle = "#000";
                 ctx.lineWidth = 5;
@@ -459,8 +415,6 @@
         }
 
         function loop() {
-            // Apenas atualiza a física se estiver JOGANDO.
-            // Nos outros estados, apenas desenha a tela estática.
             if (estado === 'JOGANDO') {
                 amigo.atualiza();
                 canos.atualiza();
@@ -474,7 +428,6 @@
             requestAnimationFrame(loop);
         }
 
-        // Eventos
         window.addEventListener('resize', redimensionaTela);
         window.addEventListener('mousedown', inputUsuario);
         window.addEventListener('touchstart', (e) => {
@@ -487,13 +440,13 @@
             }
         });
 
-        // Inicialização: espera a imagem do céu carregar para garantir o aspecto correto
+        // Aguarda a imagem do céu carregar para iniciar corretamente
         imgCeu.onload = function() {
              redimensionaTela();
              loop();
         };
-        // Fallback caso a imagem já esteja em cache
-        if (imgCeu.complete) {
+        // Fallback se estiver em cache
+        if (imgCeu.complete && imgCeu.naturalWidth !== 0) {
              redimensionaTela();
              loop();
         }
@@ -501,9 +454,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
