@@ -222,7 +222,6 @@
             },
 
             atualiza: function() {
-                // Aumento leve de dificuldade
                 const boost = Math.min(3.0, Math.floor(pontuacao / 5) * 0.3);
                 velocidadeAtual = velocidadeBase + boost;
 
@@ -235,6 +234,7 @@
                     const cano = this.lista[i];
                     cano.x -= velocidadeAtual;
 
+                    // Colisão
                     const birdL = amigo.x + HITBOX_OFFSET;
                     const birdR = amigo.x + HITBOX_OFFSET + TAMANHO_HITBOX;
                     const birdT = amigo.y + HITBOX_OFFSET;
@@ -243,11 +243,13 @@
                     const pipeL = cano.x;
                     const pipeR = cano.x + cano.largura;
                     
-                    if (birdR > pipeL + 5 && birdL < pipeR - 5) {
+                    // AQUI: Mudei de 5 para 15 (Mais folga nas laterais)
+                    if (birdR > pipeL + 15 && birdL < pipeR - 15) {
                         const pipeGapTop = cano.y;
                         const pipeGapBottom = cano.y + ABERTURA_CANO;
 
-                        if (birdT < pipeGapTop + 5 || birdB > pipeGapBottom - 5) {
+                        // AQUI: Mudei de 5 para 15 (Mais folga em cima e embaixo)
+                        if (birdT < pipeGapTop + 15 || birdB > pipeGapBottom - 15) {
                             mudarEstado('GAMEOVER');
                             return;
                         }
@@ -474,3 +476,4 @@
     </script>
 </body>
 </html>
+
