@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Amigo</title>
+    <title>Flappy Amigo - Com Vitória</title>
     <style>
         body {
             margin: 0;
@@ -29,11 +29,11 @@
 <body>
 
     <div id="recursos">
-        
         <img id="img-amigo1" src="amigo1.png" alt="Amigo 1">
 
         <img id="img-amigo2" src="amigo2.png" alt="Amigo 2">
 
+        <img id="img-vitoria" src="vitoria.png" alt="Imagem de Vitória">a
         </div>
 
     <canvas id="jogoCanvas"></canvas>
@@ -42,17 +42,17 @@
         // ==========================================
         // CONFIGURAÇÕES
         // ==========================================
+        const PONTUACAO_PARA_VITORIA = 25; // <--- META DE PONTOS MUDADA AQUI
+
         const GRAVIDADE = 0.25;
         const PULO = -6.5;
         const VELOCIDADE_JOGO = 3.5;
-        const ABERTURA_CANO = 250; // Tamanho do buraco
+        const ABERTURA_CANO = 250; 
         const DISTANCIA_ENTRE_CANOS = 350; 
         
-        // Configuração visual dos CANOS (Pode mudar as cores aqui)
-        const COR_CANO_PREENCHIMENTO = '#2ecc71'; // Verde claro
-        const COR_CANO_BORDA = '#27ae60';         // Verde escuro
+        const COR_CANO_PREENCHIMENTO = '#2ecc71'; 
+        const COR_CANO_BORDA = '#27ae60';         
 
-        // Configuração visual do Personagem
         const TAMANHO_BIRD = 50; 
 
         // ==========================================
@@ -64,12 +64,14 @@
 
         const imgAmigo1 = document.getElementById('img-amigo1');
         const imgAmigo2 = document.getElementById('img-amigo2');
-        // Removida a referência à imagem do cano
+        // --- NOVA REFERÊNCIA NO JS ---
+        const imgVitoria = document.getElementById('img-vitoria');
 
         let largura, altura;
         let frames = 0;
         let pontuacao = 0;
-        let estado = 'INICIO'; // INICIO, JOGANDO, GAMEOVER
+        // Adicionado estado 'VITORIA'
+        let estado = 'INICIO'; // INICIO, JOGANDO, GAMEOVER, VITORIA
 
         const amigo = {
             x: 50,
@@ -118,7 +120,7 @@
                 this.lista.push({
                     x: largura,
                     y: yRandom,
-                    largura: 65, // Largura do cano desenhado
+                    largura: 65, 
                     marcouPonto: false
                 });
             },
@@ -133,9 +135,7 @@
                     const cano = this.lista[i];
                     cano.x -= VELOCIDADE_JOGO;
 
-                    // ===============================================
-                    // SISTEMA DE COLISÃO RIGOROSO
-                    // ===============================================
+                    // Colisão Rigorosa
                     const birdEsquerda = amigo.x;
                     const birdDireita = amigo.x + TAMANHO_BIRD;
                     const canoEsquerda = cano.x;
@@ -147,7 +147,6 @@
                         const canoCimaBase = cano.y;
                         const canoBaixoTopo = cano.y + ABERTURA_CANO;
 
-                        // Colisão com margem de erro visual de 4 pixels para não parecer injusto
                         if (birdTopo + 4 < canoCimaBase || birdBase - 4 > canoBaixoTopo) {
                             mudarEstado('GAMEOVER');
                         }
@@ -167,20 +166,17 @@
                 }
             },
 
-            // --- NOVA FUNÇÃO DE DESENHAR CANOS (SEM IMAGEM) ---
             desenha: function() {
                 ctx.fillStyle = COR_CANO_PREENCHIMENTO;
                 ctx.strokeStyle = COR_CANO_BORDA;
-                ctx.lineWidth = 4; // Espessura da borda
+                ctx.lineWidth = 4; 
 
                 for (let i = 0; i < this.lista.length; i++) {
                     const cano = this.lista[i];
                     
-                    // Cano de Cima (Preenchimento e Borda)
                     ctx.fillRect(cano.x, 0, cano.largura, cano.y);
                     ctx.strokeRect(cano.x, 0, cano.largura, cano.y);
 
-                    // Cano de Baixo (Preenchimento e Borda)
                     const yCanoBaixo = cano.y + ABERTURA_CANO;
                     const alturaCanoBaixo = altura - yCanoBaixo;
                     ctx.fillRect(cano.x, yCanoBaixo, cano.largura, alturaCanoBaixo);
@@ -207,7 +203,8 @@
         function inputUsuario() {
             if (estado === 'JOGANDO') {
                 amigo.pula();
-            } else if (estado === 'INICIO' || estado === 'GAMEOVER') {
+            // --- PERMITIR REINICIAR TAMBÉM NA VITÓRIA ---
+            } else if (estado === 'INICIO' || estado === 'GAMEOVER' || estado === 'VITORIA') {
                 estado = 'JOGANDO';
                 canos.reseta();
                 amigo.reseta();
@@ -217,7 +214,7 @@
         }
 
         function desenha() {
-            ctx.fillStyle = "#70c5ce"; // Fundo Azul
+            ctx.fillStyle = "#70c5ce"; 
             ctx.fillRect(0, 0, largura, altura);
 
             canos.desenha();
@@ -243,18 +240,36 @@
                 ctx.fillText("Toque para Jogar", largura / 2, altura / 2);
             }
 
-            // TELA DE GAME OVER (SÓ A FOTO GIGANTE)
+            // TELA DE GAME OVER (Derrota)
             if (estado === 'GAMEOVER') {
-                ctx.fillStyle = "#000";
+                ctx.fillStyle = "#000"; // Fundo Preto na derrota
                 ctx.fillRect(0, 0, largura, altura);
-
-                let tamanho = Math.min(largura, altura) * 0.9;
-                let imgX = (largura - tamanho) / 2;
-                let imgY = (altura - tamanho) / 2;
-
-                // Desenha APENAS a imagem do Amigo 2
-                ctx.drawImage(imgAmigo2, imgX, imgY, tamanho, tamanho);
+                desenhaImagemCentralizada(imgAmigo2);
             }
+
+            // --- NOVA TELA DE VITÓRIA ---
+            if (estado === 'VITORIA') {
+                ctx.fillStyle = "#f1c40f"; // Fundo Dourado na vitória
+                ctx.fillRect(0, 0, largura, altura);
+                desenhaImagemCentralizada(imgVitoria);
+
+                // Opcional: Texto de Vitória (se quiser tirar, apague as linhas abaixo)
+                ctx.fillStyle = "#FFF";
+                ctx.strokeStyle = "#000";
+                ctx.lineWidth = 3;
+                ctx.textAlign = "center";
+                ctx.font = "bold 40px Arial";
+                ctx.fillText("VITÓRIA!", largura / 2, 100);
+                ctx.strokeText("VITÓRIA!", largura / 2, 100);
+            }
+        }
+
+        // Função auxiliar para desenhar as imagens de fim de jogo
+        function desenhaImagemCentralizada(imagem) {
+            let tamanho = Math.min(largura, altura) * 0.9;
+            let imgX = (largura - tamanho) / 2;
+            let imgY = (altura - tamanho) / 2;
+            ctx.drawImage(imagem, imgX, imgY, tamanho, tamanho);
         }
 
         function loop() {
@@ -262,6 +277,11 @@
                 amigo.atualiza();
                 canos.atualiza();
                 frames++;
+
+                // --- VERIFICAÇÃO DE VITÓRIA ---
+                if (pontuacao >= PONTUACAO_PARA_VITORIA) {
+                    mudarEstado('VITORIA');
+                }
             }
             desenha();
             requestAnimationFrame(loop);
