@@ -11,19 +11,79 @@
             overflow: hidden;
             background-color: #000;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none;
+            touch-action: none; /* Impede zoom e scroll no celular */
+            user-select: none;
         }
 
         canvas {
             display: block;
             width: 100%;
             height: 100%;
-            touch-action: none;
+            object-fit: cover; 
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
 
         #recursos {
             display: none;
         }
+
+        /* === ESTILO DO MENU DE DIFICULDADE === */
+        #menuInicial {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10; /* Fica acima do canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.7); /* Fundo escuro transparente */
+            color: white;
+            text-align: center;
+        }
+
+        #menuInicial h1 {
+            font-size: 40px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        #menuInicial p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            color: #FFD700;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        .btn-dificuldade {
+            padding: 15px 40px;
+            margin: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            width: 200px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+        }
+
+        .btn-dificuldade:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        /* Cores dos botões */
+        .btn-facil { background-color: #2ecc71; color: white; }
+        .btn-medio { background-color: #f1c40f; color: black; }
+        .btn-dificil { background-color: #e74c3c; color: white; }
+
     </style>
 </head>
 <body>
@@ -33,6 +93,15 @@
         <img id="img-amigo2" src="amigo2.png" alt="Amigo 2">
         <img id="img-vitoria" src="vitoria.png" alt="Vitória">
         <img id="img-ceu" src="ceu.jpg" alt="Céu">
+    </div>
+
+    <div id="menuInicial">
+        <h1>Flappy Amigo</h1>
+        <p>Ao chegar em 25 pontos,<br>você ganha um prêmio!</p>
+        
+        <button class="btn-dificuldade btn-facil" onclick="escolherDificuldade(2.5)">Fácil</button>
+        <button class="btn-dificuldade btn-medio" onclick="escolherDificuldade(3.5)">Médio</button>
+        <button class="btn-dificuldade btn-dificil" onclick="escolherDificuldade(4.5)">Difícil</button>
     </div>
 
     <canvas id="jogoCanvas"></canvas>
@@ -47,9 +116,9 @@
         const GRAVIDADE = 0.15;
         const PULO = -4.5;
         
-        // Dificuldade
-        const VELOCIDADE_INICIAL = 3.0; // Um pouco mais lento para testar
-        let velocidadeAtual = VELOCIDADE_INICIAL;
+        // Dificuldade (Será definida pelo botão)
+        let velocidadeBase = 3.0; 
+        let velocidadeAtual = 3.0;
         
         // Cenário
         const ABERTURA_CANO = 280;
@@ -57,11 +126,9 @@
         let bgX = 0; 
         const BG_SPEED_RATIO = 0.3; 
 
-        // --- CORREÇÃO DA COLISÃO ---
-        // O visual é 90, mas a área que bate é menor (70) para dar uma folga justa.
+        // Visual / Colisão
         const TAMANHO_VISUAL_BIRD = 90;
-        const TAMANHO_HITBOX = 70; // Reduzido para evitar bater sem querer
-        // Calcula a diferença para centralizar a hitbox
+        const TAMANHO_HITBOX = 70; 
         const HITBOX_OFFSET = (TAMANHO_VISUAL_BIRD - TAMANHO_HITBOX) / 2;
 
         // Visual dos Canos
@@ -79,6 +146,7 @@
         
         const canvas = document.getElementById('jogoCanvas');
         const ctx = canvas.getContext('2d');
+        const menuDiv = document.getElementById('menuInicial');
 
         const imgAmigo1 = document.getElementById('img-amigo1');
         const imgAmigo2 = document.getElementById('img-amigo2');
@@ -88,11 +156,27 @@
         let largura, altura;
         let frames = 0;
         let pontuacao = 0;
-        let estado = 'INICIO';
+        let estado = 'MENU'; // Começa no MENU agora
+
+        // Função chamada pelos botões HTML
+        function escolherDificuldade(velocidadeEscolhida) {
+            velocidadeBase = velocidadeEscolhida;
+            velocidadeAtual = velocidadeEscolhida;
+            
+            // Esconde o menu
+            menuDiv.style.display = 'none';
+            
+            // Inicia o jogo
+            estado = 'JOGANDO';
+            canos.reseta();
+            amigo.reseta();
+            pontuacao = 0;
+            frames = 0;
+        }
 
         const amigo = {
             x: 50,
-            y: 150, // Essa é a posição do canto superior esquerdo da IMAGEM VISUAL
+            y: 150,
             velocidade: 0,
             rotation: 0,
             
@@ -100,20 +184,17 @@
                 this.velocidade += GRAVIDADE;
                 this.y += this.velocidade;
 
-                // Rotação visual
                 if (this.velocidade < 0) this.rotation = -20 * Math.PI / 180;
                 else if (this.velocidade > 0) {
                     this.rotation += 1.5 * Math.PI / 180;
                     if(this.rotation > 90 * Math.PI / 180) this.rotation = 90 * Math.PI / 180;
                 }
 
-                // Teto
                 if(this.y < 0) {
                     this.y = 0;
                     this.velocidade = 0;
                 }
 
-                // Chão (Usando a parte de baixo da hitbox para ser preciso)
                 if(this.y + HITBOX_OFFSET + TAMANHO_HITBOX >= altura) {
                     this.y = altura - (HITBOX_OFFSET + TAMANHO_HITBOX);
                     mudarEstado('GAMEOVER');
@@ -127,14 +208,10 @@
 
             desenha: function() {
                 ctx.save();
-                // Rotaciona pelo centro da imagem visual
                 ctx.translate(this.x + TAMANHO_VISUAL_BIRD/2, this.y + TAMANHO_VISUAL_BIRD/2);
                 ctx.rotate(this.rotation);
                 ctx.drawImage(imgAmigo1, -TAMANHO_VISUAL_BIRD/2, -TAMANHO_VISUAL_BIRD/2, TAMANHO_VISUAL_BIRD, TAMANHO_VISUAL_BIRD);
                 ctx.restore();
-                
-                // DEBUG: Descomente a linha abaixo para ver o quadrado vermelho da colisão real
-                // ctx.strokeStyle = "red"; ctx.lineWidth = 2; ctx.strokeRect(this.x + HITBOX_OFFSET, this.y + HITBOX_OFFSET, TAMANHO_HITBOX, TAMANHO_HITBOX);
             },
 
             reseta: function() {
@@ -161,8 +238,9 @@
             },
 
             atualiza: function() {
+                // Aumento de dificuldade baseado na velocidade inicial escolhida
                 const boostDificuldade = Math.min(3.0, Math.floor(pontuacao / 5) * 0.4);
-                velocidadeAtual = VELOCIDADE_INICIAL + boostDificuldade;
+                velocidadeAtual = velocidadeBase + boostDificuldade;
 
                 const frequencia = Math.floor(DISTANCIA_ENTRE_CANOS / velocidadeAtual);
                 if (frames % frequencia === 0) {
@@ -173,7 +251,7 @@
                     const cano = this.lista[i];
                     cano.x -= velocidadeAtual;
 
-                    // --- COLISÃO CORRIGIDA (Usando a Hitbox menor e o Offset) ---
+                    // Colisão
                     const birdLeft = amigo.x + HITBOX_OFFSET;
                     const birdRight = amigo.x + HITBOX_OFFSET + TAMANHO_HITBOX;
                     const birdTop = amigo.y + HITBOX_OFFSET;
@@ -190,24 +268,18 @@
 
                     let colidiu = false;
 
-                    // Cano de Cima
                     if (birdTop < canoCimaBottom) {
                         if (birdBottom > canoCimaBottom - ALTURA_CABECA_CANO) {
-                             // Bateu na cabeça
                              if (birdRight > canoHeadLeft && birdLeft < canoHeadRight) colidiu = true;
                         } else {
-                             // Bateu no corpo
                              if (birdRight > canoBodyLeft && birdLeft < canoBodyRight) colidiu = true;
                         }
                     }
                     
-                    // Cano de Baixo
                     if (!colidiu && birdBottom > canoBaixoTop) {
                         if (birdTop < canoBaixoTop + ALTURA_CABECA_CANO) {
-                            // Bateu na cabeça
                             if (birdRight > canoHeadLeft && birdLeft < canoHeadRight) colidiu = true;
                         } else {
-                             // Bateu no corpo
                              if (birdRight > canoBodyLeft && birdLeft < canoBodyRight) colidiu = true;
                         }
                     }
@@ -217,7 +289,6 @@
                         return;
                     }
 
-                    // Pontuação (baseada no centro da hitbox)
                     if (cano.x + cano.largura/2 < birdLeft + TAMANHO_HITBOX/2 && !cano.marcouPonto) {
                         pontuacao++;
                         cano.marcouPonto = true;
@@ -296,15 +367,19 @@
         }
 
         function inputUsuario() {
+            // Se estiver no MENU, ignora o clique na tela (usa os botões)
+            if (estado === 'MENU') return;
+
             if (estado === 'JOGANDO') {
                 amigo.pula();
-            } else if (estado === 'INICIO' || estado === 'GAMEOVER' || estado === 'VITORIA') {
+            } else if (estado === 'GAMEOVER' || estado === 'VITORIA') {
+                // Reinicia o jogo com a última velocidade escolhida
                 estado = 'JOGANDO';
                 canos.reseta();
                 amigo.reseta();
                 pontuacao = 0;
                 frames = 0;
-                velocidadeAtual = VELOCIDADE_INICIAL;
+                velocidadeAtual = velocidadeBase; // Reseta para a velocidade da dificuldade
                 bgX = 0;
             }
         }
@@ -317,27 +392,33 @@
         }
 
         function desenha() {
-            // --- CORREÇÃO DO FUNDO INFINITO ---
-            // Calcula a proporção da imagem para preencher a altura da tela
+            // Fundo Infinito
             const bgRatio = imgCeu.width / imgCeu.height;
             const bgHeight = altura;
             const bgWidth = altura * bgRatio;
 
+            // Só move o fundo se estiver jogando
             if (estado === 'JOGANDO') {
                  bgX -= velocidadeAtual * BG_SPEED_RATIO;
-                 // Quando uma imagem inteira sai da tela, reseta a posição
                  if (bgX <= -bgWidth) {
                      bgX += bgWidth;
                  }
             }
             
-            // Desenha quantas cópias forem necessárias para preencher a largura
+            // Desenha o fundo (sempre desenha, mesmo no menu)
             let currentBgX = bgX;
             while (currentBgX < largura) {
                 ctx.drawImage(imgCeu, 0, 0, imgCeu.width, imgCeu.height, currentBgX, 0, bgWidth, bgHeight);
                 currentBgX += bgWidth;
             }
             
+            // Se estiver no MENU, desenha o jogo parado no fundo, mas não desenha HUD
+            if (estado === 'MENU') {
+                // Pode desenhar o passaro parado se quiser, ou deixar só o céu
+                // Vamos deixar só o céu para ficar limpo atrás do menu
+                return; 
+            }
+
             canos.desenha();
             amigo.desenha();
 
@@ -353,28 +434,7 @@
                 ctx.shadowColor = "transparent"; 
             }
 
-            if (estado === 'INICIO') {
-                ctx.fillStyle = "rgba(0,0,0,0.7)";
-                ctx.fillRect(0, 0, largura, altura);
-                
-                ctx.textAlign = "center";
-                ctx.fillStyle = "#FFF";
-                
-                ctx.font = "bold 32px Arial";
-                ctx.fillText("Toque para começar", largura / 2, altura / 2 + 100);
-
-                ctx.font = "bold 26px Arial";
-                ctx.fillText("“Ao chegar em " + PONTUACAO_PARA_VITORIA + " pontos,", largura / 2, altura / 2 - 30);
-                
-                ctx.save();
-                ctx.font = "900 30px Arial Black, Arial";
-                ctx.fillStyle = "#FFD700"; 
-                ctx.strokeStyle = "#C0392B"; 
-                ctx.lineWidth = 1.5;
-                ctx.fillText("você receberá um prêmio!”", largura / 2, altura / 2 + 10);
-                ctx.strokeText("você receberá um prêmio!”", largura / 2, altura / 2 + 10);
-                ctx.restore();
-            }
+            // (O estado INICIO antigo foi substituído pelo HTML 'MENU', então removemos o desenho de texto aqui)
 
             if (estado === 'GAMEOVER') {
                 ctx.fillStyle = "rgba(0,0,0,0.85)"; 
@@ -431,22 +491,25 @@
         window.addEventListener('resize', redimensionaTela);
         window.addEventListener('mousedown', inputUsuario);
         window.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            inputUsuario();
+            // Só previne o default se estiver jogando para não bloquear o clique no botão HTML
+            if (estado !== 'MENU') {
+                e.preventDefault();
+                inputUsuario();
+            }
         }, {passive: false});
+        
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'ArrowUp') {
                 inputUsuario();
             }
         });
 
-        // Aguarda a imagem do céu carregar para iniciar corretamente
         imgCeu.onload = function() {
              redimensionaTela();
              loop();
         };
-        // Fallback se estiver em cache
-        if (imgCeu.complete && imgCeu.naturalWidth !== 0) {
+        
+        if (imgCeu.complete) {
              redimensionaTela();
              loop();
         }
