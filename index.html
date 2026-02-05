@@ -19,7 +19,6 @@
             display: block;
             width: 100%;
             height: 100%;
-            object-fit: cover; 
             position: absolute;
             top: 0;
             left: 0;
@@ -30,19 +29,19 @@
             display: none;
         }
 
-        /* === ESTILO DO MENU DE DIFICULDADE === */
+        /* === ESTILO DO MENU === */
         #menuInicial {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 10; /* Fica acima do canvas */
+            z-index: 10;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: rgba(0, 0, 0, 0.7); /* Fundo escuro transparente */
+            background-color: rgba(0, 0, 0, 0.85);
             color: white;
             text-align: center;
         }
@@ -51,24 +50,30 @@
             font-size: 40px;
             margin-bottom: 10px;
             text-shadow: 2px 2px 0 #000;
+            color: #fff;
         }
 
         #menuInicial p {
             font-size: 18px;
             margin-bottom: 30px;
             color: #FFD700;
-            text-shadow: 1px 1px 0 #000;
+            font-weight: bold;
+        }
+
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
         .btn-dificuldade {
-            padding: 15px 40px;
-            margin: 10px;
+            padding: 15px 0;
+            width: 200px;
             font-size: 20px;
             font-weight: bold;
-            border: none;
+            border: 2px solid white;
             border-radius: 50px;
             cursor: pointer;
-            width: 200px;
             text-transform: uppercase;
             box-shadow: 0 4px 0 rgba(0,0,0,0.5);
             transition: transform 0.1s;
@@ -81,8 +86,8 @@
 
         /* Cores dos botões */
         .btn-facil { background-color: #2ecc71; color: white; }
-        .btn-medio { background-color: #f1c40f; color: black; }
-        .btn-dificil { background-color: #e74c3c; color: white; }
+        .btn-medio { background-color: #f39c12; color: white; }
+        .btn-dificil { background-color: #c0392b; color: white; }
 
     </style>
 </head>
@@ -97,11 +102,13 @@
 
     <div id="menuInicial">
         <h1>Flappy Amigo</h1>
-        <p>Ao chegar em 25 pontos,<br>você ganha um prêmio!</p>
+        <p>Chegue a 25 pontos<br>para ganhar o prêmio!</p>
         
-        <button class="btn-dificuldade btn-facil" onclick="escolherDificuldade(2.5)">Fácil</button>
-        <button class="btn-dificuldade btn-medio" onclick="escolherDificuldade(3.5)">Médio</button>
-        <button class="btn-dificuldade btn-dificil" onclick="escolherDificuldade(4.5)">Difícil</button>
+        <div class="btn-container">
+            <button class="btn-dificuldade btn-facil" onclick="iniciarJogo(2.5)">Fácil</button>
+            <button class="btn-dificuldade btn-medio" onclick="iniciarJogo(3.5)">Médio</button>
+            <button class="btn-dificuldade btn-dificil" onclick="iniciarJogo(4.5)">Difícil</button>
+        </div>
     </div>
 
     <canvas id="jogoCanvas"></canvas>
@@ -110,35 +117,31 @@
         // ==========================================
         // CONFIGURAÇÕES
         // ==========================================
-        const PONTUACAO_PARA_VITORIA = 25;
+        const PONTUACAO_META = 25;
 
         // Física
         const GRAVIDADE = 0.15;
         const PULO = -4.5;
         
-        // Dificuldade (Será definida pelo botão)
-        let velocidadeBase = 3.0; 
+        // Variáveis de Dificuldade
+        let velocidadeBase = 3.0; // Valor padrão
         let velocidadeAtual = 3.0;
         
         // Cenário
         const ABERTURA_CANO = 280;
         const DISTANCIA_ENTRE_CANOS = 360; 
-        let bgX = 0; 
-        const BG_SPEED_RATIO = 0.3; 
 
-        // Visual / Colisão
-        const TAMANHO_VISUAL_BIRD = 90;
+        // Colisão (Hitbox ajustada para ser justa)
+        const TAMANHO_VISUAL = 90;
         const TAMANHO_HITBOX = 70; 
-        const HITBOX_OFFSET = (TAMANHO_VISUAL_BIRD - TAMANHO_HITBOX) / 2;
+        const HITBOX_OFFSET = (TAMANHO_VISUAL - TAMANHO_HITBOX) / 2;
 
         // Visual dos Canos
         const LARGURA_CANO = 75;
-        const ALTURA_CABECA_CANO = 35;
-        const BORDA_CANO = 4;
-        const COR_CANO_LIGHT = '#85e587';
-        const COR_CANO_MAIN = '#2ecc71';
-        const COR_CANO_DARK = '#0d8536';
-        const COR_BORDA = '#000000';
+        const ALTURA_CABECA = 35;
+        const COR_CANO_B = '#2ecc71'; // Verde Base
+        const COR_CANO_D = '#0d8536'; // Verde Escuro
+        const COR_CANO_L = '#85e587'; // Verde Claro
 
         // ==========================================
         // LÓGICA DO JOGO
@@ -156,17 +159,16 @@
         let largura, altura;
         let frames = 0;
         let pontuacao = 0;
-        let estado = 'MENU'; // Começa no MENU agora
+        let estado = 'MENU'; // MENU, JOGANDO, GAMEOVER, VITORIA
 
-        // Função chamada pelos botões HTML
-        function escolherDificuldade(velocidadeEscolhida) {
+        // --- FUNÇÃO DO MENU ---
+        function iniciarJogo(velocidadeEscolhida) {
             velocidadeBase = velocidadeEscolhida;
             velocidadeAtual = velocidadeEscolhida;
             
-            // Esconde o menu
-            menuDiv.style.display = 'none';
+            menuDiv.style.display = 'none'; // Esconde menu
             
-            // Inicia o jogo
+            // Reseta tudo
             estado = 'JOGANDO';
             canos.reseta();
             amigo.reseta();
@@ -184,17 +186,20 @@
                 this.velocidade += GRAVIDADE;
                 this.y += this.velocidade;
 
+                // Rotação suave
                 if (this.velocidade < 0) this.rotation = -20 * Math.PI / 180;
                 else if (this.velocidade > 0) {
                     this.rotation += 1.5 * Math.PI / 180;
                     if(this.rotation > 90 * Math.PI / 180) this.rotation = 90 * Math.PI / 180;
                 }
 
+                // Teto
                 if(this.y < 0) {
                     this.y = 0;
                     this.velocidade = 0;
                 }
 
+                // Chão (Hitbox)
                 if(this.y + HITBOX_OFFSET + TAMANHO_HITBOX >= altura) {
                     this.y = altura - (HITBOX_OFFSET + TAMANHO_HITBOX);
                     mudarEstado('GAMEOVER');
@@ -208,10 +213,13 @@
 
             desenha: function() {
                 ctx.save();
-                ctx.translate(this.x + TAMANHO_VISUAL_BIRD/2, this.y + TAMANHO_VISUAL_BIRD/2);
+                ctx.translate(this.x + TAMANHO_VISUAL/2, this.y + TAMANHO_VISUAL/2);
                 ctx.rotate(this.rotation);
-                ctx.drawImage(imgAmigo1, -TAMANHO_VISUAL_BIRD/2, -TAMANHO_VISUAL_BIRD/2, TAMANHO_VISUAL_BIRD, TAMANHO_VISUAL_BIRD);
+                ctx.drawImage(imgAmigo1, -TAMANHO_VISUAL/2, -TAMANHO_VISUAL/2, TAMANHO_VISUAL, TAMANHO_VISUAL);
                 ctx.restore();
+                
+                // DEBUG: Descomente para ver a caixa de colisão
+                // ctx.strokeStyle="red"; ctx.lineWidth=2; ctx.strokeRect(this.x+HITBOX_OFFSET, this.y+HITBOX_OFFSET, TAMANHO_HITBOX, TAMANHO_HITBOX);
             },
 
             reseta: function() {
@@ -238,9 +246,9 @@
             },
 
             atualiza: function() {
-                // Aumento de dificuldade baseado na velocidade inicial escolhida
-                const boostDificuldade = Math.min(3.0, Math.floor(pontuacao / 5) * 0.4);
-                velocidadeAtual = velocidadeBase + boostDificuldade;
+                // Aumento sutil de velocidade conforme pontos
+                const boost = Math.min(3.0, Math.floor(pontuacao / 5) * 0.3);
+                velocidadeAtual = velocidadeBase + boost;
 
                 const frequencia = Math.floor(DISTANCIA_ENTRE_CANOS / velocidadeAtual);
                 if (frames % frequencia === 0) {
@@ -251,50 +259,35 @@
                     const cano = this.lista[i];
                     cano.x -= velocidadeAtual;
 
-                    // Colisão
-                    const birdLeft = amigo.x + HITBOX_OFFSET;
-                    const birdRight = amigo.x + HITBOX_OFFSET + TAMANHO_HITBOX;
-                    const birdTop = amigo.y + HITBOX_OFFSET;
-                    const birdBottom = amigo.y + HITBOX_OFFSET + TAMANHO_HITBOX;
+                    // --- COLISÃO ---
+                    const birdL = amigo.x + HITBOX_OFFSET;
+                    const birdR = amigo.x + HITBOX_OFFSET + TAMANHO_HITBOX;
+                    const birdT = amigo.y + HITBOX_OFFSET;
+                    const birdB = amigo.y + HITBOX_OFFSET + TAMANHO_HITBOX;
 
-                    const cabecaExtra = 4; 
-                    const canoBodyLeft = cano.x + cabecaExtra;
-                    const canoBodyRight = cano.x + cano.largura - cabecaExtra;
-                    const canoHeadLeft = cano.x;
-                    const canoHeadRight = cano.x + cano.largura;
-                    
-                    const canoCimaBottom = cano.y;
-                    const canoBaixoTop = cano.y + ABERTURA_CANO;
+                    const pipeL = cano.x;
+                    const pipeR = cano.x + cano.largura;
+                    const pipeGapTop = cano.y;
+                    const pipeGapBottom = cano.y + ABERTURA_CANO;
 
-                    let colidiu = false;
-
-                    if (birdTop < canoCimaBottom) {
-                        if (birdBottom > canoCimaBottom - ALTURA_CABECA_CANO) {
-                             if (birdRight > canoHeadLeft && birdLeft < canoHeadRight) colidiu = true;
-                        } else {
-                             if (birdRight > canoBodyLeft && birdLeft < canoBodyRight) colidiu = true;
-                        }
-                    }
-                    
-                    if (!colidiu && birdBottom > canoBaixoTop) {
-                        if (birdTop < canoBaixoTop + ALTURA_CABECA_CANO) {
-                            if (birdRight > canoHeadLeft && birdLeft < canoHeadRight) colidiu = true;
-                        } else {
-                             if (birdRight > canoBodyLeft && birdLeft < canoBodyRight) colidiu = true;
+                    // Lógica simplificada e robusta de colisão
+                    // Se o pássaro está dentro da faixa horizontal do cano...
+                    if (birdR > pipeL + 4 && birdL < pipeR - 4) {
+                        // ...e não está dentro da abertura vertical...
+                        if (birdT < pipeGapTop || birdB > pipeGapBottom) {
+                            mudarEstado('GAMEOVER');
+                            return;
                         }
                     }
 
-                    if (colidiu) {
-                        mudarEstado('GAMEOVER');
-                        return;
-                    }
-
-                    if (cano.x + cano.largura/2 < birdLeft + TAMANHO_HITBOX/2 && !cano.marcouPonto) {
+                    // Pontuação
+                    if (pipeR < birdL && !cano.marcouPonto) {
                         pontuacao++;
                         cano.marcouPonto = true;
                     }
 
-                    if (cano.x + cano.largura <= -100) {
+                    // Remove
+                    if (pipeR <= -50) {
                         this.lista.shift();
                         i--;
                     }
@@ -304,50 +297,39 @@
             desenha: function() {
                 for (let i = 0; i < this.lista.length; i++) {
                     const cano = this.lista[i];
-                    this.desenhaUmCanoMario(cano.x, cano.y, cano.largura, true);
-                    this.desenhaUmCanoMario(cano.x, cano.y + ABERTURA_CANO, cano.largura, false);
+                    // Cano Cima
+                    this.desenhaCano(cano.x, 0, cano.largura, cano.y, true);
+                    // Cano Baixo
+                    this.desenhaCano(cano.x, cano.y + ABERTURA_CANO, cano.largura, altura - (cano.y + ABERTURA_CANO), false);
                 }
             },
 
-            desenhaUmCanoMario: function(x, yRef, w, isTop) {
-                const hHead = ALTURA_CABECA_CANO;
-                const border = BORDA_CANO;
-                const wHead = w;
-                const wBody = w - 8; 
-                const xBody = x + 4;
-
+            desenhaCano: function(x, y, w, h, isTop) {
+                // Desenha corpo
                 let grad = ctx.createLinearGradient(x, 0, x + w, 0);
-                grad.addColorStop(0, COR_CANO_DARK);
-                grad.addColorStop(0.3, COR_CANO_MAIN);
-                grad.addColorStop(0.5, COR_CANO_LIGHT);
-                grad.addColorStop(0.8, COR_CANO_MAIN);
-                grad.addColorStop(1, COR_CANO_DARK);
-
+                grad.addColorStop(0, COR_CANO_D);
+                grad.addColorStop(0.5, COR_CANO_L);
+                grad.addColorStop(1, COR_CANO_D);
                 ctx.fillStyle = grad;
-                ctx.strokeStyle = COR_BORDA;
-                ctx.lineWidth = border;
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
 
+                // Ajustes para cabeça do cano
                 if (isTop) {
-                    const bodyHeight = yRef - hHead;
-                    if(bodyHeight > 0) {
-                        ctx.fillRect(xBody, 0, wBody, bodyHeight);
-                        ctx.beginPath(); ctx.moveTo(xBody,0); ctx.lineTo(xBody, bodyHeight); ctx.stroke();
-                        ctx.beginPath(); ctx.moveTo(xBody+wBody,0); ctx.lineTo(xBody+wBody, bodyHeight); ctx.stroke();
-                    }
-                    ctx.fillRect(x, yRef - hHead, wHead, hHead);
-                    ctx.strokeRect(x, yRef - hHead, wHead, hHead);
+                    // Corpo
+                    ctx.fillRect(x + 4, y, w - 8, h - ALTURA_CABECA);
+                    ctx.strokeRect(x + 4, y - 5, w - 8, h - ALTURA_CABECA + 5);
+                    // Cabeça
+                    ctx.fillRect(x, y + h - ALTURA_CABECA, w, ALTURA_CABECA);
+                    ctx.strokeRect(x, y + h - ALTURA_CABECA, w, ALTURA_CABECA);
                 } else {
-                    ctx.fillRect(x, yRef, wHead, hHead);
-                    ctx.strokeRect(x, yRef, wHead, hHead);
-                    const bodyHeight = altura - (yRef + hHead);
-                    if(bodyHeight > 0) {
-                        ctx.fillRect(xBody, yRef + hHead, wBody, bodyHeight);
-                         ctx.beginPath(); ctx.moveTo(xBody,yRef+hHead); ctx.lineTo(xBody, altura); ctx.stroke();
-                         ctx.beginPath(); ctx.moveTo(xBody+wBody,yRef+hHead); ctx.lineTo(xBody+wBody, altura); ctx.stroke();
-                    }
+                    // Cabeça
+                    ctx.fillRect(x, y, w, ALTURA_CABECA);
+                    ctx.strokeRect(x, y, w, ALTURA_CABECA);
+                    // Corpo
+                    ctx.fillRect(x + 4, y + ALTURA_CABECA, w - 8, h - ALTURA_CABECA);
+                    ctx.strokeRect(x + 4, y + ALTURA_CABECA, w - 8, h - ALTURA_CABECA);
                 }
-                ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-                ctx.fillRect(x + w*0.15, (isTop ? yRef-hHead : yRef), w*0.1, hHead);
             },
 
             reseta: function() {
@@ -367,20 +349,18 @@
         }
 
         function inputUsuario() {
-            // Se estiver no MENU, ignora o clique na tela (usa os botões)
             if (estado === 'MENU') return;
 
             if (estado === 'JOGANDO') {
                 amigo.pula();
             } else if (estado === 'GAMEOVER' || estado === 'VITORIA') {
-                // Reinicia o jogo com a última velocidade escolhida
+                // Reinicia
                 estado = 'JOGANDO';
                 canos.reseta();
                 amigo.reseta();
                 pontuacao = 0;
                 frames = 0;
-                velocidadeAtual = velocidadeBase; // Reseta para a velocidade da dificuldade
-                bgX = 0;
+                velocidadeAtual = velocidadeBase; // Mantém a dificuldade escolhida
             }
         }
 
@@ -392,85 +372,61 @@
         }
 
         function desenha() {
-            // Fundo Infinito
-            const bgRatio = imgCeu.width / imgCeu.height;
-            const bgHeight = altura;
-            const bgWidth = altura * bgRatio;
+            // === FUNDO ESTÁTICO (CORREÇÃO) ===
+            // Calcula escala para preencher a tela (Cover)
+            const imgRatio = imgCeu.width / imgCeu.height;
+            const canvasRatio = largura / altura;
+            let sWidth, sHeight, sx, sy;
 
-            // Só move o fundo se estiver jogando
-            if (estado === 'JOGANDO') {
-                 bgX -= velocidadeAtual * BG_SPEED_RATIO;
-                 if (bgX <= -bgWidth) {
-                     bgX += bgWidth;
-                 }
+            if (canvasRatio > imgRatio) {
+                sWidth = imgCeu.width;
+                sHeight = imgCeu.width / canvasRatio;
+                sx = 0;
+                sy = (imgCeu.height - sHeight) / 2;
+            } else {
+                sWidth = imgCeu.height * canvasRatio;
+                sHeight = imgCeu.height;
+                sx = (imgCeu.width - sWidth) / 2;
+                sy = 0;
             }
-            
-            // Desenha o fundo (sempre desenha, mesmo no menu)
-            let currentBgX = bgX;
-            while (currentBgX < largura) {
-                ctx.drawImage(imgCeu, 0, 0, imgCeu.width, imgCeu.height, currentBgX, 0, bgWidth, bgHeight);
-                currentBgX += bgWidth;
-            }
-            
-            // Se estiver no MENU, desenha o jogo parado no fundo, mas não desenha HUD
-            if (estado === 'MENU') {
-                // Pode desenhar o passaro parado se quiser, ou deixar só o céu
-                // Vamos deixar só o céu para ficar limpo atrás do menu
-                return; 
+            // Desenha uma única vez, parado
+            ctx.drawImage(imgCeu, sx, sy, sWidth, sHeight, 0, 0, largura, altura);
+
+            // Jogo
+            if (estado !== 'MENU') {
+                canos.desenha();
+                amigo.desenha();
             }
 
-            canos.desenha();
-            amigo.desenha();
-
+            // HUD
             if (estado === 'JOGANDO') {
                 ctx.fillStyle = "#FFF";
                 ctx.strokeStyle = "#000";
                 ctx.lineWidth = 5;
-                ctx.font = "900 70px 'Arial Black', Arial, sans-serif";
+                ctx.font = "900 70px Arial";
                 ctx.textAlign = "center";
-                ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3;
-                ctx.strokeText(pontuacao, largura / 2, 110);
-                ctx.fillText(pontuacao, largura / 2, 110);
-                ctx.shadowColor = "transparent"; 
+                ctx.strokeText(pontuacao, largura / 2, 100);
+                ctx.fillText(pontuacao, largura / 2, 100);
             }
 
-            // (O estado INICIO antigo foi substituído pelo HTML 'MENU', então removemos o desenho de texto aqui)
-
             if (estado === 'GAMEOVER') {
-                ctx.fillStyle = "rgba(0,0,0,0.85)"; 
+                ctx.fillStyle = "rgba(0,0,0,0.85)";
                 ctx.fillRect(0, 0, largura, altura);
                 desenhaImagemCentralizada(imgAmigo2);
             }
 
             if (estado === 'VITORIA') {
-                ctx.fillStyle = "#f1c40f"; 
+                ctx.fillStyle = "#f1c40f";
                 ctx.fillRect(0, 0, largura, altura);
-                
-                ctx.save();
-                ctx.translate(largura/2, altura/2);
-                ctx.rotate(frames * 0.015);
-                ctx.fillStyle = "rgba(255,255,255,0.25)";
-                for(let i=0; i<12; i++) {
-                    ctx.rotate(Math.PI/6);
-                    ctx.beginPath();
-                    ctx.moveTo(0,0);
-                    ctx.lineTo(largura, -50);
-                    ctx.lineTo(largura, 50);
-                    ctx.fill();
-                }
-                ctx.restore();
-
                 desenhaImagemCentralizada(imgVitoria);
-
+                
                 ctx.fillStyle = "#FFF";
                 ctx.strokeStyle = "#000";
-                ctx.lineWidth = 5;
+                ctx.lineWidth = 4;
                 ctx.textAlign = "center";
-                ctx.font = "900 60px Arial Black, Arial";
-                ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 4;
-                ctx.strokeText("PARABÉNS!", largura / 2, 90);
-                ctx.fillText("PARABÉNS!", largura / 2, 90);
-                ctx.shadowColor = "transparent";
+                ctx.font = "900 50px Arial";
+                ctx.strokeText("PARABÉNS!", largura / 2, 80);
+                ctx.fillText("PARABÉNS!", largura / 2, 80);
             }
         }
 
@@ -480,7 +436,7 @@
                 canos.atualiza();
                 frames++;
 
-                if (pontuacao >= PONTUACAO_PARA_VITORIA) {
+                if (pontuacao >= PONTUACAO_META) {
                     mudarEstado('VITORIA');
                 }
             }
@@ -488,31 +444,24 @@
             requestAnimationFrame(loop);
         }
 
+        // Eventos
         window.addEventListener('resize', redimensionaTela);
         window.addEventListener('mousedown', inputUsuario);
         window.addEventListener('touchstart', (e) => {
-            // Só previne o default se estiver jogando para não bloquear o clique no botão HTML
             if (estado !== 'MENU') {
                 e.preventDefault();
                 inputUsuario();
             }
         }, {passive: false});
-        
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'ArrowUp') {
                 inputUsuario();
             }
         });
 
-        imgCeu.onload = function() {
-             redimensionaTela();
-             loop();
-        };
-        
-        if (imgCeu.complete) {
-             redimensionaTela();
-             loop();
-        }
+        // Inicialização
+        imgCeu.onload = function() { redimensionaTela(); loop(); };
+        if (imgCeu.complete) { redimensionaTela(); loop(); }
 
     </script>
 </body>
