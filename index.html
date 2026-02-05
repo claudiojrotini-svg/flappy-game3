@@ -23,15 +23,15 @@
             top: 0;
             left: 0;
             z-index: 1;
-            /* Transição suave para o giro de tela */
-            transition: transform 1.5s ease-in-out, filter 1.5s ease-in-out;
+            /* Transição suave ao virar a tela */
+            transition: transform 2s ease-in-out, filter 2s ease-in-out;
         }
 
-        /* === CLASSE ATIVADA NA OUTRA DIMENSÃO === */
+        /* === O MUNDO INVERTIDO === */
         .modo-sombrio {
-            /* Inverte cores e gira a tela */
-            filter: invert(100%) hue-rotate(180deg) contrast(110%);
+            /* Vira de cabeça para baixo e aplica um filtro estranho */
             transform: rotate(180deg);
+            filter: contrast(120%) hue-rotate(45deg);
         }
 
         #recursos { display: none; }
@@ -75,6 +75,7 @@
         <img id="img-vitoria" src="vitoria.png" alt="Vitória">
         
         <img id="img-ceu" src="ceu.jpg" alt="Céu Normal">
+        
         <img id="img-ceu-escuro" src="ceu-escuro.jpg" alt="Céu Sombrio">
     </div>
 
@@ -98,7 +99,7 @@
 
         // Física
         const GRAVIDADE = 0.15;
-        const PULO = -3.5;
+        const PULO = -4.5;
         
         // Dificuldade
         let velocidadeBase = 3.0; 
@@ -108,7 +109,7 @@
         const ABERTURA_CANO = 280;
         const DISTANCIA_ENTRE_CANOS = 360; 
 
-        // Colisão
+        // Colisão (Ajuste Fino)
         const TAMANHO_VISUAL = 90;
         const TAMANHO_HITBOX = 60; 
         const HITBOX_OFFSET = (TAMANHO_VISUAL - TAMANHO_HITBOX) / 2;
@@ -132,15 +133,14 @@
         const imgAmigo2 = document.getElementById('img-amigo2');
         const imgVitoria = document.getElementById('img-vitoria');
         const imgCeu = document.getElementById('img-ceu');
-        const imgCeuEscuro = document.getElementById('img-ceu-escuro'); // Nova imagem
+        const imgCeuEscuro = document.getElementById('img-ceu-escuro');
 
         let largura, altura;
         let frames = 0;
         let pontuacao = 0;
         
-        // ESTADOS: MENU, JOGANDO, PAUSA_TRANSICAO, GAMEOVER
         let estado = 'MENU'; 
-        let faseSombria = false; // Controla se estamos na fase 2
+        let faseSombria = false; 
 
         function iniciarJogo(velocidadeEscolhida) {
             velocidadeBase = velocidadeEscolhida;
@@ -234,7 +234,7 @@
                     const cano = this.lista[i];
                     cano.x -= velocidadeAtual;
 
-                    // Colisão
+                    // Colisão Ajustada
                     const birdL = amigo.x + HITBOX_OFFSET;
                     const birdR = amigo.x + HITBOX_OFFSET + TAMANHO_HITBOX;
                     const birdT = amigo.y + HITBOX_OFFSET;
@@ -243,13 +243,11 @@
                     const pipeL = cano.x;
                     const pipeR = cano.x + cano.largura;
                     
-                    // AQUI: Mudei de 5 para 15 (Mais folga nas laterais)
-                    if (birdR > pipeL + 15 && birdL < pipeR - 15) {
+                    if (birdR > pipeL + 5 && birdL < pipeR - 5) {
                         const pipeGapTop = cano.y;
                         const pipeGapBottom = cano.y + ABERTURA_CANO;
 
-                        // AQUI: Mudei de 5 para 15 (Mais folga em cima e embaixo)
-                        if (birdT < pipeGapTop + 15 || birdB > pipeGapBottom - 15) {
+                        if (birdT < pipeGapTop + 5 || birdB > pipeGapBottom - 5) {
                             mudarEstado('GAMEOVER');
                             return;
                         }
@@ -305,7 +303,7 @@
         function mudarEstado(novoEstado) {
             estado = novoEstado;
             if(novoEstado === 'GAMEOVER') {
-                canvas.classList.remove('modo-sombrio'); // Remove efeito para ver o Game Over normal
+                canvas.classList.remove('modo-sombrio'); 
             }
         }
 
@@ -324,18 +322,17 @@
             } 
             // === CLIQUE NA TELA DE TRANSIÇÃO (25 PONTOS) ===
             else if (estado === 'PAUSA_TRANSICAO') {
-                // Ativa a "Outra Dimensão"
                 estado = 'JOGANDO';
-                canvas.classList.add('modo-sombrio'); // Vira de cabeça para baixo e inverte cores
-                faseSombria = true; // Troca a imagem de fundo
-                amigo.pula(); // Dá um pulo para não cair direto ao voltar
+                canvas.classList.add('modo-sombrio'); // Vira a tela
+                faseSombria = true; // Troca imagem
+                amigo.pula(); 
             }
             else if (estado === 'GAMEOVER') {
                 // Volta para o Menu
                 estado = 'MENU';
                 tituloMenu.innerText = "Tentar Novamente?";
                 menuDiv.style.display = 'flex';
-                canvas.classList.remove('modo-sombrio'); // Garante que limpou o efeito
+                canvas.classList.remove('modo-sombrio'); 
                 faseSombria = false;
             }
         }
@@ -367,8 +364,7 @@
         }
 
         function desenha() {
-            // === CONTROLE DE FUNDO ===
-            // Se já passou da fase (faseSombria = true), usa o céu escuro
+            // === CONTROLE DO FUNDO ===
             if (faseSombria) {
                 desenhaFundo(imgCeuEscuro);
             } else {
@@ -377,7 +373,7 @@
 
             if (estado === 'MENU') return;
 
-            // Desenha jogo (pássaro e canos)
+            // Desenha o jogo por baixo da mensagem de pausa
             canos.desenha();
             amigo.desenha();
 
@@ -392,40 +388,40 @@
                 ctx.fillText(pontuacao, largura / 2, 100);
             }
 
-            // === TELA DE TRANSIÇÃO (VITÓRIA FASE 1) ===
+            // === TELA DE TRANSIÇÃO (PAUSA AOS 25) ===
             if (estado === 'PAUSA_TRANSICAO') {
-                // Fundo semitransparente para destacar a mensagem
-                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                // Fundo Escuro
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
                 ctx.fillRect(0, 0, largura, altura);
 
                 desenhaImagemCentralizada(imgVitoria);
 
-                // Texto de Alerta
+                // Texto
                 ctx.fillStyle = "#FFF"; 
                 ctx.strokeStyle = "#000"; 
                 ctx.lineWidth = 4;
                 ctx.textAlign = "center"; 
                 ctx.font = "900 40px Arial";
                 
-                // Mensagem superior
+                // Mensagem Superior
                 ctx.strokeText("PARABÉNS!", largura / 2, 80);
                 ctx.fillText("PARABÉNS!", largura / 2, 80);
 
-                // Mensagem inferior (Outra dimensão)
+                // Mensagem Central
                 ctx.fillStyle = "#FF0000"; // Vermelho
                 ctx.strokeStyle = "#FFF";
                 ctx.lineWidth = 1;
-                ctx.font = "bold 30px Arial";
+                ctx.font = "bold 32px Arial";
                 
-                let yTexto = altura - 100;
+                let yTexto = altura - 120;
                 ctx.fillText("AGORA VOCÊ VAI PARA", largura/2, yTexto);
-                ctx.font = "900 35px Arial";
-                ctx.fillText("OUTRA DIMENSÃO!", largura/2, yTexto + 40);
+                ctx.font = "900 38px Arial";
+                ctx.fillText("OUTRA DIMENSÃO!", largura/2, yTexto + 45);
                 
                 // Instrução
                 ctx.fillStyle = "#FFF";
                 ctx.font = "20px Arial";
-                ctx.fillText("(Toque para continuar)", largura/2, yTexto + 80);
+                ctx.fillText("(Toque para continuar)", largura/2, yTexto + 90);
             }
 
             if (estado === 'GAMEOVER') {
@@ -446,10 +442,10 @@
                 canos.atualiza();
                 frames++;
 
-                // === LÓGICA DE TRANSIÇÃO AOS 25 ===
+                // === AQUI ACONTECE A MÁGICA ===
+                // Se chegou nos 25 e ainda não mudamos de fase: PAUSA!
                 if (pontuacao === PONTUACAO_TRANSICAO && !faseSombria) {
                     mudarEstado('PAUSA_TRANSICAO');
-                    // Não ativamos a faseSombria aqui ainda, só quando o usuário clicar
                 }
             }
             desenha();
@@ -476,6 +472,3 @@
     </script>
 </body>
 </html>
-
-
-
