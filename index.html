@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Amigo - Outra Dimensão</title>
+    <title>Flappy Amigo - A Transição</title>
     <style>
         body {
             margin: 0;
@@ -13,7 +13,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             touch-action: none;
             user-select: none;
-            transition: background-color 2s;
         }
 
         canvas {
@@ -24,16 +23,14 @@
             top: 0;
             left: 0;
             z-index: 1;
-            /* Transição suave para o modo sombrio */
-            transition: transform 3s ease-in-out, filter 3s ease-in-out;
+            /* Transição suave para o giro de tela */
+            transition: transform 1.5s ease-in-out, filter 1.5s ease-in-out;
         }
 
-        /* === O MUNDO SOMBRIO === */
-        /* Essa classe é ativada pelo Javascript aos 25 pontos */
+        /* === CLASSE ATIVADA NA OUTRA DIMENSÃO === */
         .modo-sombrio {
-            /* Inverte as cores (negativo) e aumenta contraste */
-            filter: invert(100%) hue-rotate(180deg) contrast(120%);
-            /* Gira a tela de cabeça para baixo */
+            /* Inverte cores e gira a tela */
+            filter: invert(100%) hue-rotate(180deg) contrast(110%);
             transform: rotate(180deg);
         }
 
@@ -76,12 +73,14 @@
         <img id="img-amigo1" src="amigo1.png" alt="Amigo 1">
         <img id="img-amigo2" src="amigo2.png" alt="Amigo 2">
         <img id="img-vitoria" src="vitoria.png" alt="Vitória">
-        <img id="img-ceu" src="ceu.jpg" alt="Céu">
+        
+        <img id="img-ceu" src="ceu.jpg" alt="Céu Normal">
+        <img id="img-ceu-escuro" src="ceu-escuro.jpg" alt="Céu Sombrio">
     </div>
 
     <div id="menuInicial">
-        <h1>Flappy Amigo</h1>
-        <p>Sobreviva à mudança de dimensão<br>e chegue aos 50 pontos!</p>
+        <h1 id="tituloMenu">Flappy Amigo</h1>
+        <p>Chegue aos 25 pontos para<br>abrir o portal!</p>
         <div class="btn-container">
             <button class="btn-dificuldade btn-facil" onclick="iniciarJogo(2.5)">Fácil</button>
             <button class="btn-dificuldade btn-medio" onclick="iniciarJogo(3.5)">Médio</button>
@@ -95,8 +94,7 @@
         // ==========================================
         // CONFIGURAÇÕES
         // ==========================================
-        const PONTUACAO_MUDANCA = 25; // Onde o jogo vira de cabeça para baixo
-        const PONTUACAO_VITORIA = 50; // Onde o jogo acaba
+        const PONTUACAO_TRANSICAO = 25; 
 
         // Física
         const GRAVIDADE = 0.15;
@@ -110,10 +108,9 @@
         const ABERTURA_CANO = 280;
         const DISTANCIA_ENTRE_CANOS = 360; 
 
-        // === AJUSTE FINO DE COLISÃO ===
-        // O personagem parece grande (90px), mas só bate se tocar no miolo (60px)
+        // Colisão
         const TAMANHO_VISUAL = 90;
-        const TAMANHO_HITBOX = 60; // Reduzi mais para ficar bem justo
+        const TAMANHO_HITBOX = 60; 
         const HITBOX_OFFSET = (TAMANHO_VISUAL - TAMANHO_HITBOX) / 2;
 
         // Visual dos Canos
@@ -129,17 +126,21 @@
         const canvas = document.getElementById('jogoCanvas');
         const ctx = canvas.getContext('2d');
         const menuDiv = document.getElementById('menuInicial');
+        const tituloMenu = document.getElementById('tituloMenu');
 
         const imgAmigo1 = document.getElementById('img-amigo1');
         const imgAmigo2 = document.getElementById('img-amigo2');
         const imgVitoria = document.getElementById('img-vitoria');
         const imgCeu = document.getElementById('img-ceu');
+        const imgCeuEscuro = document.getElementById('img-ceu-escuro'); // Nova imagem
 
         let largura, altura;
         let frames = 0;
         let pontuacao = 0;
-        let estado = 'MENU';
-        let modoSombrioAtivo = false;
+        
+        // ESTADOS: MENU, JOGANDO, PAUSA_TRANSICAO, GAMEOVER
+        let estado = 'MENU'; 
+        let faseSombria = false; // Controla se estamos na fase 2
 
         function iniciarJogo(velocidadeEscolhida) {
             velocidadeBase = velocidadeEscolhida;
@@ -148,7 +149,7 @@
             
             // Reseta visual e estados
             canvas.classList.remove('modo-sombrio');
-            modoSombrioAtivo = false;
+            faseSombria = false;
             
             estado = 'JOGANDO';
             canos.reseta();
@@ -178,7 +179,6 @@
                     this.velocidade = 0;
                 }
 
-                // Colisão com o chão (Considerando a hitbox interna)
                 if(this.y + HITBOX_OFFSET + TAMANHO_HITBOX >= altura) {
                     this.y = altura - (HITBOX_OFFSET + TAMANHO_HITBOX);
                     mudarEstado('GAMEOVER');
@@ -196,9 +196,6 @@
                 ctx.rotate(this.rotation);
                 ctx.drawImage(imgAmigo1, -TAMANHO_VISUAL/2, -TAMANHO_VISUAL/2, TAMANHO_VISUAL, TAMANHO_VISUAL);
                 ctx.restore();
-                
-                // DEBUG: Descomente para ver o quadrado vermelho real onde bate
-                // ctx.strokeStyle="red"; ctx.lineWidth=2; ctx.strokeRect(this.x+HITBOX_OFFSET, this.y+HITBOX_OFFSET, TAMANHO_HITBOX, TAMANHO_HITBOX);
             },
 
             reseta: function() {
@@ -225,6 +222,7 @@
             },
 
             atualiza: function() {
+                // Aumento leve de dificuldade
                 const boost = Math.min(3.0, Math.floor(pontuacao / 5) * 0.3);
                 velocidadeAtual = velocidadeBase + boost;
 
@@ -237,26 +235,18 @@
                     const cano = this.lista[i];
                     cano.x -= velocidadeAtual;
 
-                    // --- COLISÃO ULTRA SEGURA ---
-                    // Definimos a área do passaro (menor que a imagem)
                     const birdL = amigo.x + HITBOX_OFFSET;
                     const birdR = amigo.x + HITBOX_OFFSET + TAMANHO_HITBOX;
                     const birdT = amigo.y + HITBOX_OFFSET;
                     const birdB = amigo.y + HITBOX_OFFSET + TAMANHO_HITBOX;
 
-                    // Definimos a área do cano
                     const pipeL = cano.x;
                     const pipeR = cano.x + cano.largura;
                     
-                    // Colisão Horizontal: Só verifica altura se estivermos DENTRO da largura do cano
-                    // Adicionei +5px de folga extra nas laterais do cano
                     if (birdR > pipeL + 5 && birdL < pipeR - 5) {
-                        
                         const pipeGapTop = cano.y;
                         const pipeGapBottom = cano.y + ABERTURA_CANO;
 
-                        // Colisão Vertical: Bateu no teto ou no chão do cano?
-                        // Adicionei +5px de folga extra nas bordas verticais
                         if (birdT < pipeGapTop + 5 || birdB > pipeGapBottom - 5) {
                             mudarEstado('GAMEOVER');
                             return;
@@ -312,10 +302,8 @@
 
         function mudarEstado(novoEstado) {
             estado = novoEstado;
-            // Se perder, remove o modo sombrio imediatamente para ver a tela de game over normal
-            // (Ou deixe se quiser que a derrota também seja sombria. Vou remover para clareza)
             if(novoEstado === 'GAMEOVER') {
-                canvas.classList.remove('modo-sombrio');
+                canvas.classList.remove('modo-sombrio'); // Remove efeito para ver o Game Over normal
             }
         }
 
@@ -331,17 +319,22 @@
 
             if (estado === 'JOGANDO') {
                 amigo.pula();
-            } else if (estado === 'GAMEOVER' || estado === 'VITORIA') {
-                // Ao reiniciar pelo clique, mantemos a velocidade mas resetamos o modo sombrio
-                canvas.classList.remove('modo-sombrio');
-                modoSombrioAtivo = false;
-                
+            } 
+            // === CLIQUE NA TELA DE TRANSIÇÃO (25 PONTOS) ===
+            else if (estado === 'PAUSA_TRANSICAO') {
+                // Ativa a "Outra Dimensão"
                 estado = 'JOGANDO';
-                canos.reseta();
-                amigo.reseta();
-                pontuacao = 0;
-                frames = 0;
-                velocidadeAtual = velocidadeBase; 
+                canvas.classList.add('modo-sombrio'); // Vira de cabeça para baixo e inverte cores
+                faseSombria = true; // Troca a imagem de fundo
+                amigo.pula(); // Dá um pulo para não cair direto ao voltar
+            }
+            else if (estado === 'GAMEOVER') {
+                // Volta para o Menu
+                estado = 'MENU';
+                tituloMenu.innerText = "Tentar Novamente?";
+                menuDiv.style.display = 'flex';
+                canvas.classList.remove('modo-sombrio'); // Garante que limpou o efeito
+                faseSombria = false;
             }
         }
 
@@ -352,31 +345,42 @@
             ctx.drawImage(imagem, imgX, imgY, tamanho, tamanho);
         }
 
-        function desenha() {
-            // Fundo Estático (Preenche tela)
-            const imgRatio = imgCeu.width / imgCeu.height;
+        function desenhaFundo(imagem) {
+            const imgRatio = imagem.width / imagem.height;
             const canvasRatio = largura / altura;
             let sWidth, sHeight, sx, sy;
 
             if (canvasRatio > imgRatio) {
-                sWidth = imgCeu.width;
-                sHeight = imgCeu.width / canvasRatio;
+                sWidth = imagem.width;
+                sHeight = imagem.width / canvasRatio;
                 sx = 0;
-                sy = (imgCeu.height - sHeight) / 2;
+                sy = (imagem.height - sHeight) / 2;
             } else {
-                sWidth = imgCeu.height * canvasRatio;
-                sHeight = imgCeu.height;
-                sx = (imgCeu.width - sWidth) / 2;
+                sWidth = imagem.height * canvasRatio;
+                sHeight = imagem.height;
+                sx = (imagem.width - sWidth) / 2;
                 sy = 0;
             }
-            ctx.drawImage(imgCeu, sx, sy, sWidth, sHeight, 0, 0, largura, altura);
+            ctx.drawImage(imagem, sx, sy, sWidth, sHeight, 0, 0, largura, altura);
+        }
+
+        function desenha() {
+            // === CONTROLE DE FUNDO ===
+            // Se já passou da fase (faseSombria = true), usa o céu escuro
+            if (faseSombria) {
+                desenhaFundo(imgCeuEscuro);
+            } else {
+                desenhaFundo(imgCeu);
+            }
 
             if (estado === 'MENU') return;
 
+            // Desenha jogo (pássaro e canos)
             canos.desenha();
             amigo.desenha();
 
-            if (estado === 'JOGANDO') {
+            // Placar
+            if (estado === 'JOGANDO' || estado === 'PAUSA_TRANSICAO') {
                 ctx.fillStyle = "#FFF";
                 ctx.strokeStyle = "#000";
                 ctx.lineWidth = 5;
@@ -386,20 +390,51 @@
                 ctx.fillText(pontuacao, largura / 2, 100);
             }
 
+            // === TELA DE TRANSIÇÃO (VITÓRIA FASE 1) ===
+            if (estado === 'PAUSA_TRANSICAO') {
+                // Fundo semitransparente para destacar a mensagem
+                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                ctx.fillRect(0, 0, largura, altura);
+
+                desenhaImagemCentralizada(imgVitoria);
+
+                // Texto de Alerta
+                ctx.fillStyle = "#FFF"; 
+                ctx.strokeStyle = "#000"; 
+                ctx.lineWidth = 4;
+                ctx.textAlign = "center"; 
+                ctx.font = "900 40px Arial";
+                
+                // Mensagem superior
+                ctx.strokeText("PARABÉNS!", largura / 2, 80);
+                ctx.fillText("PARABÉNS!", largura / 2, 80);
+
+                // Mensagem inferior (Outra dimensão)
+                ctx.fillStyle = "#FF0000"; // Vermelho
+                ctx.strokeStyle = "#FFF";
+                ctx.lineWidth = 1;
+                ctx.font = "bold 30px Arial";
+                
+                let yTexto = altura - 100;
+                ctx.fillText("AGORA VOCÊ VAI PARA", largura/2, yTexto);
+                ctx.font = "900 35px Arial";
+                ctx.fillText("OUTRA DIMENSÃO!", largura/2, yTexto + 40);
+                
+                // Instrução
+                ctx.fillStyle = "#FFF";
+                ctx.font = "20px Arial";
+                ctx.fillText("(Toque para continuar)", largura/2, yTexto + 80);
+            }
+
             if (estado === 'GAMEOVER') {
                 ctx.fillStyle = "rgba(0,0,0,0.85)";
                 ctx.fillRect(0, 0, largura, altura);
                 desenhaImagemCentralizada(imgAmigo2);
-            }
-
-            if (estado === 'VITORIA') {
-                ctx.fillStyle = "#f1c40f";
-                ctx.fillRect(0, 0, largura, altura);
-                desenhaImagemCentralizada(imgVitoria);
-                ctx.fillStyle = "#FFF"; ctx.strokeStyle = "#000"; ctx.lineWidth = 4;
-                ctx.textAlign = "center"; ctx.font = "900 50px Arial";
-                ctx.strokeText("LENDA!", largura / 2, 80);
-                ctx.fillText("LENDA!", largura / 2, 80);
+                
+                ctx.fillStyle = "#FFF";
+                ctx.font = "bold 20px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("Toque para mudar dificuldade", largura/2, altura - 50);
             }
         }
 
@@ -409,15 +444,10 @@
                 canos.atualiza();
                 frames++;
 
-                // === LÓGICA DO MUNDO SOMBRIO ===
-                if (pontuacao >= PONTUACAO_MUDANCA && !modoSombrioAtivo) {
-                    canvas.classList.add('modo-sombrio');
-                    modoSombrioAtivo = true;
-                }
-
-                if (pontuacao >= PONTUACAO_VITORIA) {
-                    canvas.classList.remove('modo-sombrio'); // Volta ao normal para a vitória
-                    mudarEstado('VITORIA');
+                // === LÓGICA DE TRANSIÇÃO AOS 25 ===
+                if (pontuacao === PONTUACAO_TRANSICAO && !faseSombria) {
+                    mudarEstado('PAUSA_TRANSICAO');
+                    // Não ativamos a faseSombria aqui ainda, só quando o usuário clicar
                 }
             }
             desenha();
