@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Flappy Amigo - Desafio do Prêmio</title>
+    <title>Flappy Amigo - Outra Dimensão</title>
     <style>
         body {
             margin: 0;
@@ -11,8 +11,9 @@
             overflow: hidden;
             background-color: #000;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none; /* Impede zoom e scroll no celular */
+            touch-action: none;
             user-select: none;
+            transition: background-color 2s;
         }
 
         canvas {
@@ -23,19 +24,25 @@
             top: 0;
             left: 0;
             z-index: 1;
+            /* Transição suave para o modo sombrio */
+            transition: transform 3s ease-in-out, filter 3s ease-in-out;
         }
 
-        #recursos {
-            display: none;
+        /* === O MUNDO SOMBRIO === */
+        /* Essa classe é ativada pelo Javascript aos 25 pontos */
+        .modo-sombrio {
+            /* Inverte as cores (negativo) e aumenta contraste */
+            filter: invert(100%) hue-rotate(180deg) contrast(120%);
+            /* Gira a tela de cabeça para baixo */
+            transform: rotate(180deg);
         }
 
-        /* === ESTILO DO MENU === */
+        #recursos { display: none; }
+
+        /* === MENU === */
         #menuInicial {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10;
             display: flex;
             flex-direction: column;
@@ -46,45 +53,17 @@
             text-align: center;
         }
 
-        #menuInicial h1 {
-            font-size: 40px;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 0 #000;
-            color: #fff;
-        }
+        #menuInicial h1 { font-size: 40px; margin-bottom: 10px; color: #fff; text-shadow: 2px 2px 0 #000; }
+        #menuInicial p { font-size: 18px; margin-bottom: 30px; color: #FFD700; font-weight: bold; }
 
-        #menuInicial p {
-            font-size: 18px;
-            margin-bottom: 30px;
-            color: #FFD700;
-            font-weight: bold;
-        }
-
-        .btn-container {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
+        .btn-container { display: flex; flex-direction: column; gap: 15px; }
         .btn-dificuldade {
-            padding: 15px 0;
-            width: 200px;
-            font-size: 20px;
-            font-weight: bold;
-            border: 2px solid white;
-            border-radius: 50px;
-            cursor: pointer;
-            text-transform: uppercase;
+            padding: 15px 0; width: 200px;
+            font-size: 20px; font-weight: bold;
+            border: 2px solid white; border-radius: 50px;
+            cursor: pointer; text-transform: uppercase;
             box-shadow: 0 4px 0 rgba(0,0,0,0.5);
-            transition: transform 0.1s;
         }
-
-        .btn-dificuldade:active {
-            transform: translateY(4px);
-            box-shadow: none;
-        }
-
-        /* Cores dos botões */
         .btn-facil { background-color: #2ecc71; color: white; }
         .btn-medio { background-color: #f39c12; color: white; }
         .btn-dificil { background-color: #c0392b; color: white; }
@@ -102,8 +81,7 @@
 
     <div id="menuInicial">
         <h1>Flappy Amigo</h1>
-        <p>Chegue a 25 pontos<br>para ganhar o prêmio!</p>
-        
+        <p>Sobreviva à mudança de dimensão<br>e chegue aos 50 pontos!</p>
         <div class="btn-container">
             <button class="btn-dificuldade btn-facil" onclick="iniciarJogo(2.5)">Fácil</button>
             <button class="btn-dificuldade btn-medio" onclick="iniciarJogo(3.5)">Médio</button>
@@ -117,31 +95,32 @@
         // ==========================================
         // CONFIGURAÇÕES
         // ==========================================
-        const PONTUACAO_META = 25;
+        const PONTUACAO_MUDANCA = 25; // Onde o jogo vira de cabeça para baixo
+        const PONTUACAO_VITORIA = 50; // Onde o jogo acaba
 
         // Física
         const GRAVIDADE = 0.15;
         const PULO = -4.5;
         
-        // Variáveis de Dificuldade
-        let velocidadeBase = 3.0; // Valor padrão
+        // Dificuldade
+        let velocidadeBase = 3.0; 
         let velocidadeAtual = 3.0;
         
         // Cenário
         const ABERTURA_CANO = 280;
         const DISTANCIA_ENTRE_CANOS = 360; 
 
-        // Colisão (Hitbox ajustada para ser justa)
+        // === AJUSTE FINO DE COLISÃO ===
+        // O personagem parece grande (90px), mas só bate se tocar no miolo (60px)
         const TAMANHO_VISUAL = 90;
-        const TAMANHO_HITBOX = 70; 
+        const TAMANHO_HITBOX = 60; // Reduzi mais para ficar bem justo
         const HITBOX_OFFSET = (TAMANHO_VISUAL - TAMANHO_HITBOX) / 2;
 
         // Visual dos Canos
         const LARGURA_CANO = 75;
         const ALTURA_CABECA = 35;
-        const COR_CANO_B = '#2ecc71'; // Verde Base
-        const COR_CANO_D = '#0d8536'; // Verde Escuro
-        const COR_CANO_L = '#85e587'; // Verde Claro
+        const COR_CANO_D = '#0d8536';
+        const COR_CANO_L = '#85e587';
 
         // ==========================================
         // LÓGICA DO JOGO
@@ -159,16 +138,18 @@
         let largura, altura;
         let frames = 0;
         let pontuacao = 0;
-        let estado = 'MENU'; // MENU, JOGANDO, GAMEOVER, VITORIA
+        let estado = 'MENU';
+        let modoSombrioAtivo = false;
 
-        // --- FUNÇÃO DO MENU ---
         function iniciarJogo(velocidadeEscolhida) {
             velocidadeBase = velocidadeEscolhida;
             velocidadeAtual = velocidadeEscolhida;
+            menuDiv.style.display = 'none';
             
-            menuDiv.style.display = 'none'; // Esconde menu
+            // Reseta visual e estados
+            canvas.classList.remove('modo-sombrio');
+            modoSombrioAtivo = false;
             
-            // Reseta tudo
             estado = 'JOGANDO';
             canos.reseta();
             amigo.reseta();
@@ -186,20 +167,18 @@
                 this.velocidade += GRAVIDADE;
                 this.y += this.velocidade;
 
-                // Rotação suave
                 if (this.velocidade < 0) this.rotation = -20 * Math.PI / 180;
                 else if (this.velocidade > 0) {
                     this.rotation += 1.5 * Math.PI / 180;
                     if(this.rotation > 90 * Math.PI / 180) this.rotation = 90 * Math.PI / 180;
                 }
 
-                // Teto
                 if(this.y < 0) {
                     this.y = 0;
                     this.velocidade = 0;
                 }
 
-                // Chão (Hitbox)
+                // Colisão com o chão (Considerando a hitbox interna)
                 if(this.y + HITBOX_OFFSET + TAMANHO_HITBOX >= altura) {
                     this.y = altura - (HITBOX_OFFSET + TAMANHO_HITBOX);
                     mudarEstado('GAMEOVER');
@@ -218,7 +197,7 @@
                 ctx.drawImage(imgAmigo1, -TAMANHO_VISUAL/2, -TAMANHO_VISUAL/2, TAMANHO_VISUAL, TAMANHO_VISUAL);
                 ctx.restore();
                 
-                // DEBUG: Descomente para ver a caixa de colisão
+                // DEBUG: Descomente para ver o quadrado vermelho real onde bate
                 // ctx.strokeStyle="red"; ctx.lineWidth=2; ctx.strokeRect(this.x+HITBOX_OFFSET, this.y+HITBOX_OFFSET, TAMANHO_HITBOX, TAMANHO_HITBOX);
             },
 
@@ -246,7 +225,6 @@
             },
 
             atualiza: function() {
-                // Aumento sutil de velocidade conforme pontos
                 const boost = Math.min(3.0, Math.floor(pontuacao / 5) * 0.3);
                 velocidadeAtual = velocidadeBase + boost;
 
@@ -259,34 +237,37 @@
                     const cano = this.lista[i];
                     cano.x -= velocidadeAtual;
 
-                    // --- COLISÃO ---
+                    // --- COLISÃO ULTRA SEGURA ---
+                    // Definimos a área do passaro (menor que a imagem)
                     const birdL = amigo.x + HITBOX_OFFSET;
                     const birdR = amigo.x + HITBOX_OFFSET + TAMANHO_HITBOX;
                     const birdT = amigo.y + HITBOX_OFFSET;
                     const birdB = amigo.y + HITBOX_OFFSET + TAMANHO_HITBOX;
 
+                    // Definimos a área do cano
                     const pipeL = cano.x;
                     const pipeR = cano.x + cano.largura;
-                    const pipeGapTop = cano.y;
-                    const pipeGapBottom = cano.y + ABERTURA_CANO;
+                    
+                    // Colisão Horizontal: Só verifica altura se estivermos DENTRO da largura do cano
+                    // Adicionei +5px de folga extra nas laterais do cano
+                    if (birdR > pipeL + 5 && birdL < pipeR - 5) {
+                        
+                        const pipeGapTop = cano.y;
+                        const pipeGapBottom = cano.y + ABERTURA_CANO;
 
-                    // Lógica simplificada e robusta de colisão
-                    // Se o pássaro está dentro da faixa horizontal do cano...
-                    if (birdR > pipeL + 4 && birdL < pipeR - 4) {
-                        // ...e não está dentro da abertura vertical...
-                        if (birdT < pipeGapTop || birdB > pipeGapBottom) {
+                        // Colisão Vertical: Bateu no teto ou no chão do cano?
+                        // Adicionei +5px de folga extra nas bordas verticais
+                        if (birdT < pipeGapTop + 5 || birdB > pipeGapBottom - 5) {
                             mudarEstado('GAMEOVER');
                             return;
                         }
                     }
 
-                    // Pontuação
                     if (pipeR < birdL && !cano.marcouPonto) {
                         pontuacao++;
                         cano.marcouPonto = true;
                     }
 
-                    // Remove
                     if (pipeR <= -50) {
                         this.lista.shift();
                         i--;
@@ -297,15 +278,12 @@
             desenha: function() {
                 for (let i = 0; i < this.lista.length; i++) {
                     const cano = this.lista[i];
-                    // Cano Cima
                     this.desenhaCano(cano.x, 0, cano.largura, cano.y, true);
-                    // Cano Baixo
                     this.desenhaCano(cano.x, cano.y + ABERTURA_CANO, cano.largura, altura - (cano.y + ABERTURA_CANO), false);
                 }
             },
 
             desenhaCano: function(x, y, w, h, isTop) {
-                // Desenha corpo
                 let grad = ctx.createLinearGradient(x, 0, x + w, 0);
                 grad.addColorStop(0, COR_CANO_D);
                 grad.addColorStop(0.5, COR_CANO_L);
@@ -314,19 +292,14 @@
                 ctx.strokeStyle = '#000';
                 ctx.lineWidth = 3;
 
-                // Ajustes para cabeça do cano
                 if (isTop) {
-                    // Corpo
                     ctx.fillRect(x + 4, y, w - 8, h - ALTURA_CABECA);
                     ctx.strokeRect(x + 4, y - 5, w - 8, h - ALTURA_CABECA + 5);
-                    // Cabeça
                     ctx.fillRect(x, y + h - ALTURA_CABECA, w, ALTURA_CABECA);
                     ctx.strokeRect(x, y + h - ALTURA_CABECA, w, ALTURA_CABECA);
                 } else {
-                    // Cabeça
                     ctx.fillRect(x, y, w, ALTURA_CABECA);
                     ctx.strokeRect(x, y, w, ALTURA_CABECA);
-                    // Corpo
                     ctx.fillRect(x + 4, y + ALTURA_CABECA, w - 8, h - ALTURA_CABECA);
                     ctx.strokeRect(x + 4, y + ALTURA_CABECA, w - 8, h - ALTURA_CABECA);
                 }
@@ -339,6 +312,11 @@
 
         function mudarEstado(novoEstado) {
             estado = novoEstado;
+            // Se perder, remove o modo sombrio imediatamente para ver a tela de game over normal
+            // (Ou deixe se quiser que a derrota também seja sombria. Vou remover para clareza)
+            if(novoEstado === 'GAMEOVER') {
+                canvas.classList.remove('modo-sombrio');
+            }
         }
 
         function redimensionaTela() {
@@ -354,13 +332,16 @@
             if (estado === 'JOGANDO') {
                 amigo.pula();
             } else if (estado === 'GAMEOVER' || estado === 'VITORIA') {
-                // Reinicia
+                // Ao reiniciar pelo clique, mantemos a velocidade mas resetamos o modo sombrio
+                canvas.classList.remove('modo-sombrio');
+                modoSombrioAtivo = false;
+                
                 estado = 'JOGANDO';
                 canos.reseta();
                 amigo.reseta();
                 pontuacao = 0;
                 frames = 0;
-                velocidadeAtual = velocidadeBase; // Mantém a dificuldade escolhida
+                velocidadeAtual = velocidadeBase; 
             }
         }
 
@@ -372,8 +353,7 @@
         }
 
         function desenha() {
-            // === FUNDO ESTÁTICO (CORREÇÃO) ===
-            // Calcula escala para preencher a tela (Cover)
+            // Fundo Estático (Preenche tela)
             const imgRatio = imgCeu.width / imgCeu.height;
             const canvasRatio = largura / altura;
             let sWidth, sHeight, sx, sy;
@@ -389,16 +369,13 @@
                 sx = (imgCeu.width - sWidth) / 2;
                 sy = 0;
             }
-            // Desenha uma única vez, parado
             ctx.drawImage(imgCeu, sx, sy, sWidth, sHeight, 0, 0, largura, altura);
 
-            // Jogo
-            if (estado !== 'MENU') {
-                canos.desenha();
-                amigo.desenha();
-            }
+            if (estado === 'MENU') return;
 
-            // HUD
+            canos.desenha();
+            amigo.desenha();
+
             if (estado === 'JOGANDO') {
                 ctx.fillStyle = "#FFF";
                 ctx.strokeStyle = "#000";
@@ -419,14 +396,10 @@
                 ctx.fillStyle = "#f1c40f";
                 ctx.fillRect(0, 0, largura, altura);
                 desenhaImagemCentralizada(imgVitoria);
-                
-                ctx.fillStyle = "#FFF";
-                ctx.strokeStyle = "#000";
-                ctx.lineWidth = 4;
-                ctx.textAlign = "center";
-                ctx.font = "900 50px Arial";
-                ctx.strokeText("PARABÉNS!", largura / 2, 80);
-                ctx.fillText("PARABÉNS!", largura / 2, 80);
+                ctx.fillStyle = "#FFF"; ctx.strokeStyle = "#000"; ctx.lineWidth = 4;
+                ctx.textAlign = "center"; ctx.font = "900 50px Arial";
+                ctx.strokeText("LENDA!", largura / 2, 80);
+                ctx.fillText("LENDA!", largura / 2, 80);
             }
         }
 
@@ -436,7 +409,14 @@
                 canos.atualiza();
                 frames++;
 
-                if (pontuacao >= PONTUACAO_META) {
+                // === LÓGICA DO MUNDO SOMBRIO ===
+                if (pontuacao >= PONTUACAO_MUDANCA && !modoSombrioAtivo) {
+                    canvas.classList.add('modo-sombrio');
+                    modoSombrioAtivo = true;
+                }
+
+                if (pontuacao >= PONTUACAO_VITORIA) {
+                    canvas.classList.remove('modo-sombrio'); // Volta ao normal para a vitória
                     mudarEstado('VITORIA');
                 }
             }
@@ -444,7 +424,6 @@
             requestAnimationFrame(loop);
         }
 
-        // Eventos
         window.addEventListener('resize', redimensionaTela);
         window.addEventListener('mousedown', inputUsuario);
         window.addEventListener('touchstart', (e) => {
@@ -459,7 +438,6 @@
             }
         });
 
-        // Inicialização
         imgCeu.onload = function() { redimensionaTela(); loop(); };
         if (imgCeu.complete) { redimensionaTela(); loop(); }
 
